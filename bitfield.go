@@ -8,7 +8,7 @@ type Bitfield struct {
 	length uint32
 }
 
-// New creates a new Bitfield of length bits.
+// New creates a new empty Bitfield of length bits.
 func New(length uint32) *Bitfield {
 	return &Bitfield{make([]byte, (length+7)/8), length}
 }
@@ -17,19 +17,25 @@ func New(length uint32) *Bitfield {
 // Bytes in b are not copied. Unused bits in last byte are cleared.
 // Panics if b is not big enough to hold "length" bits.
 func NewBytes(b []byte, length uint32) *Bitfield {
-	div, mod := divMod32(length, 8)
-	lastByteIncomplete := mod != 0
-	requiredBytes := div
-	if lastByteIncomplete {
-		requiredBytes++
-	}
-	if uint32(len(b)) < requiredBytes {
+	nBytes, nLastBits := calcSize(length)
+	if uint32(len(b)) < nBytes {
 		panic("not enough bytes in slice for specified length")
 	}
-	if lastByteIncomplete {
-		b[len(b)-1] &= ^(0xff >> mod)
+	if nLastBits != 0 {
+		b[len(b)-1] &= ^(0xff >> nLastBits)
 	}
-	return &Bitfield{b[:requiredBytes], length}
+	return &Bitfield{b[:nBytes], length}
+}
+
+// calcSize calculates the number of bytes that is required to store length bits
+// and the number of valid bits in last byte.
+func calcSize(length uint32) (nBytes, nLastBits uint32) {
+	nBytes, nLastBits = divMod32(length, 8)
+	lastByteIncomplete := nLastBits != 0
+	if lastByteIncomplete {
+		nBytes++
+	}
+	return
 }
 
 // Bytes returns bytes in b. If you modify the returned slice the bits in b are modified too.
